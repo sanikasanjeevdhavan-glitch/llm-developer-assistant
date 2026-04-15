@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>LLM Developer Assistant</title>
+  <style>
+    /* ── Reset & base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --bg:        #0f1117;
+      --surface:   #1a1d27;
+      --surface2:  #22263a;
+      --border:    rgba(255,255,255,0.08);
+      --border2:   rgba(255,255,255,0.14);
+      --text:      #e8eaf0;
+      --muted:     #8890a8;
+      --accent:    #6c63ff;
+      --accent-bg: rgba(108,99,255,0.12);
+      --green:     #22c55e;
+      --green-bg:  rgba(34,197,94,0.12);
+      --red:       #f87171;
+      --red-bg:    rgba(248,113,113,0.12);
+      --amber:     #fbbf24;
+      --amber-bg:  rgba(251,191,36,0.12);
+      --radius:    10px;
+      --radius-lg: 14px;
+      --mono:      'JetBrains Mono', 'Fira Code', monospace;
+    }
+    html { scroll-behavior: smooth; }
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: -apple-system, 'Inter', sans-serif;
+      font-size: 14px;
+      line-height: 1.6;
+      min-height: 100vh;
+    }
+
+    /* ── Layout ── */
+    .wrapper { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+    /* ── Header ── */
+    header { margin-bottom: 2.5rem; }
+    .badge {
+      display: inline-flex; align-items: center; gap: 6px;
+      font-size: 11px; font-weight: 600; letter-spacing: 0.06em;
+      text-transform: uppercase; padding: 4px 10px;
+      background: var(--accent-bg); color: var(--accent);
+      border: 0.5px solid var(--accent); border-radius: 99px;
+      margin-bottom: 1rem;
+    }
+    .badge::before { content:''; width:6px; height:6px; border-radius:50%; background:var(--accent); }
+    h1 { font-size: 28px; font-weight: 700; letter-spacing: -0.02em; margin-bottom: 6px; }
+    h1 span { color: var(--accent); }
+    .subtitle { color: var(--muted); font-size: 14px; }
+    .status-bar {
+      display: inline-flex; align-items: center; gap: 8px;
+      margin-top: 1rem; padding: 6px 12px;
+      background: var(--surface); border: 0.5px solid var(--border2);
+      border-radius: var(--radius); font-size: 12px; color: var(--muted);
+    }
+    .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); flex-shrink: 0; }
+    .dot.red { background: var(--red); }
+    code { font-family: var(--mono); font-size: 11px; }
+
+    /* ── Tabs ── */
+    .tabs { display: flex; gap: 4px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+    .tab {
+      padding: 7px 16px; font-size: 13px; font-weight: 500;
+      border: 0.5px solid var(--border); border-radius: var(--radius);
+      background: transparent; color: var(--muted); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .tab:hover { background: var(--surface); color: var(--text); }
+    .tab.active {
+      background: var(--accent-bg); color: var(--accent);
+      border-color: var(--accent);
+    }
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--surface);
+      border: 0.5px solid var(--border2);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      margin-bottom: 12px;
+    }
+
+    /* ── Form elements ── */
+    label {
+      display: block; font-size: 11px; font-weight: 600;
+      letter-spacing: 0.05em; text-transform: uppercase;
+      color: var(--muted); margin-bottom: 6px;
+    }
+    textarea, input[type=text], select {
+      width: 100%; background: var(--surface2);
+      border: 0.5px solid var(--border2); border-radius: var(--radius);
+      color: var(--text); font-size: 13px; padding: 10px 12px;
+      font-family: inherit; transition: border-color 0.15s;
+    }
+    textarea { font-family: var(--mono); font-size: 12px; min-height: 110px; resize: vertical; }
+    textarea:focus, input[type=text]:focus, select:focus {
+      outline: none; border-color: var(--accent);
+    }
+    select { cursor: pointer; }
+
+    /* ── Buttons ── */
+    .btn {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 8px 18px; font-size: 13px; font-weight: 600;
+      border-radius: var(--radius); cursor: pointer; transition: all 0.15s;
+      border: 0.5px solid var(--accent);
+      background: var(--accent-bg); color: var(--accent);
+    }
+    .btn:hover { background: var(--accent); color: #fff; }
+    .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .btn:active:not(:disabled) { transform: scale(0.97); }
+
+    /* ── Results ── */
+    .result {
+      background: var(--surface2); border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1.25rem; margin-top: 12px;
+    }
+    .result-section { margin-bottom: 16px; }
+    .result-section:last-child { margin-bottom: 0; }
+    .rlabel {
+      font-size: 11px; font-weight: 600; letter-spacing: 0.05em;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 8px;
+    }
+    .rtext { font-size: 13px; line-height: 1.7; }
+    .pill {
+      display: inline-block; font-size: 12px; padding: 3px 10px;
+      border-radius: 99px; margin: 3px 3px 3px 0;
+    }
+    .pill-red   { background: var(--red-bg);   color: var(--red);   }
+    .pill-green { background: var(--green-bg); color: var(--green); }
+    .pill-blue  { background: var(--accent-bg); color: var(--accent); }
+    .code-block {
+      font-family: var(--mono); font-size: 12px;
+      background: var(--bg); border: 0.5px solid var(--border);
+      border-radius: var(--radius); padding: 12px;
+      white-space: pre-wrap; word-break: break-word; line-height: 1.6;
+    }
+    .latency { font-size: 11px; color: var(--muted); margin-top: 10px; }
+
+    /* ── Chat ── */
+    .chat-history {
+      max-height: 280px; overflow-y: auto; margin-bottom: 12px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .chat-history::-webkit-scrollbar { width: 4px; }
+    .chat-history::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+    .msg {
+      padding: 9px 13px; border-radius: var(--radius);
+      font-size: 13px; line-height: 1.6; max-width: 86%;
+    }
+    .msg.user   { background: var(--accent-bg); color: var(--text); align-self: flex-end; border: 0.5px solid var(--accent); }
+    .msg.bot    { background: var(--surface2);  color: var(--text); align-self: flex-start; border: 0.5px solid var(--border2); }
+    .empty { text-align: center; padding: 2rem; color: var(--muted); font-size: 13px; }
+
+    /* ── Spinner ── */
+    .spinner {
+      width: 13px; height: 13px; border: 2px solid var(--border2);
+      border-top-color: var(--accent); border-radius: 50%;
+      animation: spin 0.6s linear infinite; display: inline-block;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* ── Grid ── */
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    @media (max-width: 560px) { .row { grid-template-columns: 1fr; } h1 { font-size: 22px; } }
+
+    /* ── Footer ── */
+    footer {
+      margin-top: 3rem; padding-top: 1.5rem;
+      border-top: 0.5px solid var(--border);
+      text-align: center; color: var(--muted); font-size: 12px;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+    footer a:hover { text-decoration: underline; }
+
+    /* ── Error ── */
+    .error { color: var(--red); font-size: 13px; margin-top: 8px; }
+  </style>
+</head>
+<body>
+<div class="wrapper">
+
+  <!-- Header -->
+  <header>
+    <div class="badge">Live Demo</div>
+    <h1>LLM <span>Developer</span> Assistant</h1>
+    <p class="subtitle">Agentic code review, bug detection &amp; optimization — powered by LangChain + OpenAI</p>
+    <div class="status-bar">
+      <span class="dot" id="status-dot"></span>
+      <span id="status-text">Checking server…</span>
+      &nbsp;·&nbsp; API: <code id="api-url">—</code>
+    </div>
+  </header>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('analyze')">Analyze code</button>
+    <button class="tab" onclick="switchTab('optimize')">Optimize code</button>
+    <button class="tab" onclick="switchTab('chat')">Chat</button>
+    <button class="tab" onclick="switchTab('multi')">Multi-file</button>
+  </div>
+
+  <!-- ANALYZE -->
+  <div id="panel-analyze" class="panel active">
+    <div class="card">
+      <label>Code snippet</label>
+      <textarea id="a-code">def add(a, b):
+    return a - b  # bug: subtraction instead of addition
+
+def divide(x, y):
+    return x / y  # bug: no zero division check</textarea>
+      <div style="display:flex;gap:8px;align-items:center;margin-top:10px;">
+        <select id="a-lang" style="width:auto;">
+          <option>python</option><option>javascript</option><option>typescript</option>
+          <option>java</option><option>go</option><option>rust</option>
+        </select>
+        <button class="btn" id="a-btn" onclick="runAnalyze()">
+          <span id="a-ico">▶</span> Run analysis
+        </button>
+      </div>
+    </div>
+    <div id="a-result"></div>
+  </div>
+
+  <!-- OPTIMIZE -->
+  <div id="panel-optimize" class="panel">
+    <div class="card">
+      <label>Code to optimize</label>
+      <textarea id="o-code">result = []
+for i in range(100):
+    if i % 2 == 0:
+        result.append(i * i)</textarea>
+      <div style="margin-top:10px;">
+        <button class="btn" id="o-btn" onclick="runOptimize()">
+          <span id="o-ico">▶</span> Optimize
+        </button>
+      </div>
+    </div>
+    <div id="o-result"></div>
+  </div>
+
+  <!-- CHAT -->
+  <div id="panel-chat" class="panel">
+    <div class="card">
+      <div class="chat-history" id="chat-hist">
+        <div class="empty">No messages yet — ask something below.</div>
+      </div>
+      <div style="margin-bottom:10px;">
+        <label>Code context (optional)</label>
+        <textarea id="c-ctx" style="min-height:60px;" placeholder="Paste code for context…"></textarea>
+      </div>
+      <div style="display:flex;gap:8px;">
+        <input type="text" id="c-input" placeholder="Ask about your code…"
+               onkeydown="if(event.key==='Enter')runChat()" />
+        <button class="btn" id="c-btn" onclick="runChat()" style="white-space:nowrap;">Send ↗</button>
+      </div>
+      <div class="latency" id="c-latency"></div>
+    </div>
+  </div>
+
+  <!-- MULTI-FILE -->
+  <div id="panel-multi" class="panel">
+    <div class="card">
+      <div class="row">
+        <div>
+          <label>File 1 (python)</label>
+          <textarea id="m-f1">x = 1/0  # ZeroDivisionError</textarea>
+        </div>
+        <div>
+          <label>File 2 (sql)</label>
+          <textarea id="m-f2">SELECT * FROM users
+WHERE id = '" + userId + "'"</textarea>
+        </div>
+      </div>
+      <button class="btn" id="m-btn" onclick="runMulti()" style="margin-top:12px;">
+        <span id="m-ico">▶</span> Analyze all files
+      </button>
+    </div>
+    <div id="m-result"></div>
+  </div>
+
+  <footer>
+    Built with FastAPI · LangChain · OpenAI &nbsp;|&nbsp;
+    <a href="https://github.com/YOUR_USERNAME/llm-developer-assistant" target="_blank">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="/docs" target="_blank">API Docs</a>
+  </footer>
+</div>
+
+<script>
+  // ── Config ───────────────────────────────────────────────────────────────
+  // Change this to your deployed backend URL after deploying to Railway/Render.
+  // e.g. "https://llm-dev-assistant.up.railway.app"
+  const API_BASE = window.BACKEND_URL || 'http://localhost:8000';
+
+  document.getElementById('api-url').textContent = API_BASE;
+
+  // ── Health check ─────────────────────────────────────────────────────────
+  async function checkHealth() {
+    try {
+      const r = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(4000) });
+      const d = await r.json();
+      document.getElementById('status-dot').classList.remove('red');
+      document.getElementById('status-text').textContent =
+        `Server online · model: ${d.model}`;
+    } catch {
+      document.getElementById('status-dot').classList.add('red');
+      document.getElementById('status-text').textContent = 'Server offline — start your backend';
+    }
+  }
+  checkHealth();
+  setInterval(checkHealth, 15000);
+
+  // ── Tab switching ─────────────────────────────────────────────────────────
+  function switchTab(name) {
+    const names = ['analyze','optimize','chat','multi'];
+    document.querySelectorAll('.tab').forEach((t,i) =>
+      t.classList.toggle('active', names[i] === name));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    document.getElementById(`panel-${name}`).classList.add('active');
+  }
+
+  // ── Loading helpers ───────────────────────────────────────────────────────
+  function setLoading(btnId, icoId, on) {
+    document.getElementById(btnId).disabled = on;
+    document.getElementById(icoId).innerHTML =
+      on ? '<span class="spinner"></span>' : '▶';
+  }
+
+  // ── Render helpers ────────────────────────────────────────────────────────
+  function renderAnalysis(data, el) {
+    const bugs = (data.bugs||[]).length
+      ? data.bugs.map(b=>`<span class="pill pill-red">${esc(b)}</span>`).join('')
+      : '<span style="color:var(--muted);font-size:12px">None detected</span>';
+    const fixes = (data.suggested_fixes||[]).length
+      ? data.suggested_fixes.map(f=>`<span class="pill pill-green">${esc(f)}</span>`).join('')
+      : '<span style="color:var(--muted);font-size:12px">None</span>';
+    el.innerHTML = `<div class="result">
+      <div class="result-section"><div class="rlabel">Explanation</div>
+        <div class="rtext">${esc(data.explanation||'—')}</div></div>
+      <div class="result-section"><div class="rlabel">Bugs detected</div>${bugs}</div>
+      <div class="result-section"><div class="rlabel">Suggested fixes</div>${fixes}</div>
+      ${data.latency_ms?`<div class="latency">Response time: ${data.latency_ms}ms</div>`:''}
+    </div>`;
+  }
+
+  function esc(s) {
+    return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function serverError(el) {
+    el.innerHTML = `<p class="error">Could not reach the server at <code>${API_BASE}</code>. Is it running?</p>`;
+  }
+
+  // ── Analyze ───────────────────────────────────────────────────────────────
+  async function runAnalyze() {
+    const code = document.getElementById('a-code').value.trim();
+    const language = document.getElementById('a-lang').value;
+    const el = document.getElementById('a-result');
+    if (!code) { el.innerHTML = '<p class="error">Please enter some code.</p>'; return; }
+    setLoading('a-btn','a-ico',true);
+    el.innerHTML = '<p style="color:var(--muted);margin-top:8px;font-size:13px">Analysing…</p>';
+    try {
+      const r = await fetch(`${API_BASE}/analyze-code`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({code, language})
+      });
+      renderAnalysis(await r.json(), el);
+    } catch { serverError(el); }
+    finally { setLoading('a-btn','a-ico',false); }
+  }
+
+  // ── Optimize ──────────────────────────────────────────────────────────────
+  async function runOptimize() {
+    const code = document.getElementById('o-code').value.trim();
+    const el = document.getElementById('o-result');
+    if (!code) return;
+    setLoading('o-btn','o-ico',true);
+    el.innerHTML = '<p style="color:var(--muted);margin-top:8px;font-size:13px">Optimizing…</p>';
+    try {
+      const r = await fetch(`${API_BASE}/optimize-code`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({code})
+      });
+      const d = await r.json();
+      const imps = (d.improvements||[]).map(i=>`<span class="pill pill-blue">${esc(i)}</span>`).join('') || '—';
+      el.innerHTML = `<div class="result">
+        <div class="result-section"><div class="rlabel">Optimized code</div>
+          <div class="code-block">${esc(d.optimized_code||'')}</div></div>
+        <div class="result-section"><div class="rlabel">Improvements</div>${imps}</div>
+        ${d.latency_ms?`<div class="latency">Response time: ${d.latency_ms}ms</div>`:''}
+      </div>`;
+    } catch { serverError(el); }
+    finally { setLoading('o-btn','o-ico',false); }
+  }
+
+  // ── Chat ──────────────────────────────────────────────────────────────────
+  const history = [];
+
+  function renderHistory() {
+    const div = document.getElementById('chat-hist');
+    if (!history.length) { div.innerHTML = '<div class="empty">No messages yet.</div>'; return; }
+    div.innerHTML = history.map(m=>
+      `<div class="msg ${m.role==='user'?'user':'bot'}">${esc(m.content)}</div>`
+    ).join('');
+    div.scrollTop = div.scrollHeight;
+  }
+
+  async function runChat() {
+    const query = document.getElementById('c-input').value.trim();
+    const code_context = document.getElementById('c-ctx').value.trim() || null;
+    if (!query) return;
+    history.push({role:'user', content: query});
+    renderHistory();
+    document.getElementById('c-input').value = '';
+    document.getElementById('c-btn').disabled = true;
+    try {
+      const r = await fetch(`${API_BASE}/chat`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({query, code_context, session_id:'demo'})
+      });
+      const d = await r.json();
+      history.push({role:'assistant', content: d.response});
+      document.getElementById('c-latency').textContent =
+        d.latency_ms ? `Response time: ${d.latency_ms}ms` : '';
+    } catch {
+      history.push({role:'assistant', content:'⚠️ Server unreachable.'});
+    } finally {
+      renderHistory();
+      document.getElementById('c-btn').disabled = false;
+    }
+  }
+
+  // ── Multi-file ────────────────────────────────────────────────────────────
+  async function runMulti() {
+    const f1 = document.getElementById('m-f1').value;
+    const f2 = document.getElementById('m-f2').value;
+    const el = document.getElementById('m-result');
+    setLoading('m-btn','m-ico',true);
+    el.innerHTML = '<p style="color:var(--muted);margin-top:8px;font-size:13px">Analysing all files…</p>';
+    try {
+      const r = await fetch(`${API_BASE}/analyze-multi`, {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({files:[{code:f1,language:'python'},{code:f2,language:'sql'}]})
+      });
+      const d = await r.json();
+      let html = '<div class="result">';
+      (d.results||[]).forEach((res, i) => {
+        html += `<div style="margin-bottom:${i<d.results.length-1?'16px':'0'};
+          padding-bottom:${i<d.results.length-1?'16px':'0'};
+          border-bottom:${i<d.results.length-1?'0.5px solid var(--border)':'none'}">
+          <div class="rlabel">File ${i+1}</div>`;
+        const bugs = (res.bugs||[]).map(b=>`<span class="pill pill-red">${esc(b)}</span>`).join('') || '<span style="color:var(--muted);font-size:12px">None</span>';
+        html += `<div class="rtext" style="margin-bottom:8px">${esc(res.explanation||'')}</div>${bugs}</div>`;
+      });
+      html += `${d.latency_ms?`<div class="latency">Total: ${d.latency_ms}ms</div>`:''}</div>`;
+      el.innerHTML = html;
+    } catch { serverError(el); }
+    finally { setLoading('m-btn','m-ico',false); }
+  }
+</script>
+</body>
+</html>
